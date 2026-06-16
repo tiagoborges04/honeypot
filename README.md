@@ -45,7 +45,7 @@ source cowrie-env/bin/activate
 
 ### Install Cowrie
 
-Source-checkout installs use `pip install -e` which creates the `cowrie` command inside your active venv. In source-checkout mode the repo root acts as the state directory — no `cowrie init` step needed.
+Source-checkout installs use `pip install -e` which creates the `cowrie` command inside your active venv.
 
 ```bash
 python -m pip install --upgrade pip
