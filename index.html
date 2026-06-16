@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<title>HoneyNet Live</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.6.1/socket.io.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap" rel="stylesheet"/>
+<style>
+:root{--bg:#08080f;--s:#0f0f1a;--s2:#161625;--b:rgba(100,80,220,.18);--t:#e8e4ff;--m:#7a789a;--dim:#3a3860;--cyan:#00e5c3;--pink:#f72c8a;--pur:#7c4dff;--yel:#ffd166;--red:#ff3b5c;--grn:#00d68f;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--t);font-family:'Space Mono',monospace;font-size:12px;}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:0 1.5rem;height:50px;background:var(--s);border-bottom:1px solid var(--b);position:sticky;top:0;z-index:99;}
+.brand{font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:var(--cyan);}
+.live-pill{display:flex;align-items:center;gap:6px;padding:4px 12px;border-radius:100px;border:1px solid rgba(255,59,92,.35);color:var(--red);font-size:11px;}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--red);animation:blink 1s infinite;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+main{padding:1.25rem;display:flex;flex-direction:column;gap:1.25rem;}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
+.stat{background:var(--s);border:1px solid var(--b);border-radius:10px;padding:.9rem 1.1rem;border-top:2px solid;}
+.stat.c1{border-top-color:var(--red)}.stat.c2{border-top-color:var(--yel)}.stat.c3{border-top-color:var(--cyan)}.stat.c4{border-top-color:var(--grn)}
+.stat-label{font-size:9px;color:var(--m);text-transform:uppercase;letter-spacing:.12em;margin-bottom:6px;}
+.stat-val{font-family:'Syne',sans-serif;font-size:26px;font-weight:800;}
+.stat.c1 .stat-val{color:var(--red)}.stat.c2 .stat-val{color:var(--yel)}.stat.c3 .stat-val{color:var(--cyan)}.stat.c4 .stat-val{color:var(--grn)}
+.row2{display:grid;grid-template-columns:1.5fr 1fr;gap:1.25rem;}
+.panel{background:var(--s);border:1px solid var(--b);border-radius:10px;overflow:hidden;}
+.ph{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--b);}
+.pt{font-family:'Syne',sans-serif;font-size:12px;font-weight:700;color:var(--t);}
+.log-hdr{display:grid;grid-template-columns:80px 110px 1fr 100px;gap:8px;padding:7px 14px;border-bottom:1px solid var(--b);font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:.1em;}
+.log-wrap{max-height:280px;overflow-y:auto;}
+.log-wrap::-webkit-scrollbar{width:3px;}.log-wrap::-webkit-scrollbar-thumb{background:var(--dim);}
+.log-entry{display:grid;grid-template-columns:80px 110px 1fr 100px;gap:8px;padding:7px 14px;border-bottom:1px solid rgba(100,80,220,.06);align-items:center;animation:li .25s ease both;}
+@keyframes li{from{opacity:0;transform:translateX(-4px)}to{opacity:1;transform:none}}
+.log-entry:hover{background:rgba(124,77,255,.04);}
+.lt{color:var(--dim);font-size:10px;}.lip{color:var(--cyan);}.lev{color:var(--m);font-size:10px;}.ldt{color:var(--t);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.badge{font-size:9px;padding:2px 7px;border-radius:100px;font-weight:700;}
+.badge.fail{background:rgba(255,59,92,.12);color:var(--red);border:1px solid rgba(255,59,92,.25);}
+.badge.ok{background:rgba(0,214,143,.1);color:var(--grn);border:1px solid rgba(0,214,143,.25);}
+.badge.conn{background:rgba(124,77,255,.12);color:var(--pur);border:1px solid rgba(124,77,255,.25);}
+.badge.cmd{background:rgba(255,209,102,.1);color:var(--yel);border:1px solid rgba(255,209,102,.25);}
+.badge.info{background:rgba(122,120,154,.1);color:var(--m);border:1px solid rgba(122,120,154,.2);}
+.row3{display:grid;grid-template-columns:repeat(3,1fr);gap:1.25rem;}
+.list-item{display:flex;align-items:center;gap:8px;padding:7px 14px;border-bottom:1px solid rgba(100,80,220,.06);}
+.li-key{flex:1;color:var(--t);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.li-bar-wrap{width:60px;height:3px;background:var(--s2);border-radius:2px;overflow:hidden;}
+.li-bar{height:100%;border-radius:2px;background:var(--pur);}
+.li-count{width:36px;text-align:right;color:var(--m);font-size:11px;}
+.cmd-item{padding:8px 14px;border-bottom:1px solid rgba(100,80,220,.06);}
+.cmd-ip{color:var(--cyan);font-size:10px;margin-bottom:3px;}
+.cmd-text{color:var(--yel);background:var(--s2);padding:4px 8px;border-radius:4px;font-size:11px;word-break:break-all;}
+.empty{color:var(--dim);font-size:11px;padding:2rem 1rem;text-align:center;}
+.chart-wrap{padding:.75rem;position:relative;height:160px;}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">&#128623; HoneyNet — Live</div>
+  <div style="display:flex;gap:12px;align-items:center;">
+    <span style="color:var(--m);font-size:11px;" id="lastSeen">No events yet</span>
+    <div class="live-pill"><span class="dot"></span>LIVE</div>
+  </div>
+</header>
+
+<main>
+  <div class="stats">
+    <div class="stat c1"><div class="stat-label">Total events</div><div class="stat-val" id="sTotal">0</div></div>
+    <div class="stat c2"><div class="stat-label">Login attempts</div><div class="stat-val" id="sAttempts">0</div></div>
+    <div class="stat c3"><div class="stat-label">Unique IPs</div><div class="stat-val" id="sIPs">0</div></div>
+    <div class="stat c4"><div class="stat-label">Successful logins</div><div class="stat-val" id="sSuccess">0</div></div>
+  </div>
+
+  <div class="row2">
+    <div class="panel">
+      <div class="ph"><span class="pt">Live event feed</span></div>
+      <div class="log-hdr"><span>Time</span><span>Source IP</span><span>Detail</span><span>Event</span></div>
+      <div class="log-wrap" id="logWrap"><div class="empty">Waiting for attacks...</div></div>
+    </div>
+    <div class="panel">
+      <div class="ph"><span class="pt">Event breakdown</span></div>
+      <div class="chart-wrap">
+        <canvas id="typeChart" role="img" aria-label="Donut chart of event types">Event type distribution.</canvas>
+      </div>
+      <div style="padding:0 14px 10px;display:flex;flex-wrap:wrap;gap:8px;font-size:10px;color:var(--m);" id="typeLegend"></div>
+    </div>
+  </div>
+
+  <div class="row3">
+    <div class="panel">
+      <div class="ph"><span class="pt">Top source IPs</span></div>
+      <div id="ipList"><div class="empty">No data</div></div>
+    </div>
+    <div class="panel">
+      <div class="ph"><span class="pt">Top usernames tried</span></div>
+      <div id="userList"><div class="empty">No data</div></div>
+    </div>
+    <div class="panel">
+      <div class="ph"><span class="pt">Top passwords tried</span></div>
+      <div id="passList"><div class="empty">No data</div></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="ph"><span class="pt">Commands entered by attackers</span><span style="font-size:10px;color:var(--m);">only on successful logins</span></div>
+    <div id="cmdList"><div class="empty">No commands yet — try logging in to your honeypot</div></div>
+  </div>
+</main>
+
+<script>
+const socket = io();
+let typeChart = null;
+const TYPE_COLORS = {
+  'cowrie.login.failed':  '#ff3b5c',
+  'cowrie.login.success': '#00d68f',
+  'cowrie.session.connect': '#7c4dff',
+  'cowrie.command.input': '#ffd166',
+  'cowrie.session.closed': '#7a789a',
+};
+
+function evBadge(ev) {
+  if(ev.includes('failed'))  return '<span class="badge fail">FAIL</span>';
+  if(ev.includes('success')) return '<span class="badge ok">LOGIN</span>';
+  if(ev.includes('connect')) return '<span class="badge conn">CONN</span>';
+  if(ev.includes('command')) return '<span class="badge cmd">CMD</span>';
+  if(ev.includes('closed'))  return '<span class="badge info">CLOSE</span>';
+  return '<span class="badge info">INFO</span>';
+}
+
+function shortTime(ts) {
+  if(!ts) return '—';
+  try { return new Date(ts).toTimeString().slice(0,8); } catch(e){ return ts.slice(11,19)||ts; }
+}
+
+function renderList(id, items, maxVal, barColor) {
+  const el = document.getElementById(id);
+  if(!items || !items.length){ el.innerHTML = '<div class="empty">No data yet</div>'; return; }
+  el.innerHTML = items.map(([k,v]) => `
+    <div class="list-item">
+      <span class="li-key" title="${k}">${k||'(blank)'}</span>
+      <div class="li-bar-wrap"><div class="li-bar" style="width:${Math.round(v/maxVal*100)}%;background:${barColor};"></div></div>
+      <span class="li-count">${v}</span>
+    </div>`).join('');
+}
+
+socket.on('update', data => {
+  document.getElementById('sTotal').textContent     = data.total_events.toLocaleString();
+  document.getElementById('sAttempts').textContent  = data.login_attempts.toLocaleString();
+  document.getElementById('sIPs').textContent       = data.unique_ips.toLocaleString();
+  document.getElementById('sSuccess').textContent   = data.login_success.toLocaleString();
+
+  if(data.events && data.events.length) {
+    document.getElementById('lastSeen').textContent = 'Last: ' + shortTime(data.events[0].time);
+    const wrap = document.getElementById('logWrap');
+    wrap.innerHTML = data.events.map(e => `
+      <div class="log-entry">
+        <span class="lt">${shortTime(e.time)}</span>
+        <span class="lip">${e.ip}</span>
+        <span class="ldt">${e.detail||'—'}</span>
+        ${evBadge(e.event)}
+      </div>`).join('');
+  }
+
+  const maxIP   = data.top_ips[0]?.[1]   || 1;
+  const maxUser = data.top_usernames[0]?.[1] || 1;
+  const maxPass = data.top_passwords[0]?.[1] || 1;
+  renderList('ipList',   data.top_ips,       maxIP,   '#00e5c3');
+  renderList('userList', data.top_usernames, maxUser, '#f72c8a');
+  renderList('passList', data.top_passwords, maxPass, '#7c4dff');
+
+  if(data.commands && data.commands.length) {
+    document.getElementById('cmdList').innerHTML = [...data.commands].reverse().slice(0,15).map(c => `
+      <div class="cmd-item">
+        <div class="cmd-ip">${c.ip} @ ${shortTime(c.time)}</div>
+        <div class="cmd-text">$ ${c.cmd}</div>
+      </div>`).join('');
+  }
+
+  const evTypes = data.event_types || {};
+  const labels  = Object.keys(evTypes);
+  const values  = Object.values(evTypes);
+  const colors  = labels.map(l => TYPE_COLORS[l] || '#7a789a');
+
+  if(!typeChart) {
+    typeChart = new Chart(document.getElementById('typeChart'), {
+      type: 'doughnut',
+      data: { labels, datasets: [{ data: values, backgroundColor: colors, borderWidth: 2, borderColor: '#08080f' }] },
+      options: {
+        responsive: true, maintainAspectRatio: false, cutout: '65%',
+        plugins: { legend: { display: false }, tooltip: {
+          backgroundColor:'#0f0f1a', borderColor:'rgba(100,80,220,.4)', borderWidth:1,
+          titleColor:'#e8e4ff', bodyColor:'#7a789a'
+        }}
+      }
+    });
+    const leg = document.getElementById('typeLegend');
+    leg.innerHTML = labels.map((l,i)=>`
+      <span style="display:flex;align-items:center;gap:4px;">
+        <span style="width:8px;height:8px;border-radius:2px;background:${colors[i]};display:inline-block;"></span>
+        ${l.replace('cowrie.','')} (${values[i]})
+      </span>`).join('');
+  } else {
+    typeChart.data.labels  = labels;
+    typeChart.data.datasets[0].data  = values;
+    typeChart.data.datasets[0].backgroundColor = colors;
+    typeChart.update('none');
+    const leg = document.getElementById('typeLegend');
+    leg.innerHTML = labels.map((l,i)=>`
+      <span style="display:flex;align-items:center;gap:4px;">
+        <span style="width:8px;height:8px;border-radius:2px;background:${colors[i]};display:inline-block;"></span>
+        ${l.replace('cowrie.','')} (${values[i]})
+      </span>`).join('');
+  }
+});
+</script>
+</body>
+</html>
